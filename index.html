@@ -1,0 +1,840 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Oracle Quant V21 - Dual Core Apex</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;800&family=JetBrains+Mono:wght@400;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root { --bg: #030712; }
+        body { font-family: 'Plus Jakarta Sans', sans-serif; background: var(--bg); color: #f8fafc; overflow-x: hidden; }
+        .font-mono { font-family: 'JetBrains Mono', monospace; }
+        .glass-panel { background: rgba(15, 23, 42, 0.6); border: 1px solid rgba(255,255,255,0.05); backdrop-filter: blur(16px); }
+        .metric-card { background: rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.05); }
+        .pulse-green { animation: pulseG 1.5s infinite; }
+        @keyframes pulseG { 0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.6); } 70% { box-shadow: 0 0 0 10px rgba(16, 185, 129, 0); } 100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); } }
+        .pulse-purple { animation: pulseP 1.5s infinite; }
+        @keyframes pulseP { 0% { box-shadow: 0 0 0 0 rgba(168, 85, 247, 0.6); } 70% { box-shadow: 0 0 0 10px rgba(168, 85, 247, 0); } 100% { box-shadow: 0 0 0 0 rgba(168, 85, 247, 0); } }
+        .custom-scroll::-webkit-scrollbar { width: 4px; }
+        .custom-scroll::-webkit-scrollbar-thumb { background: #334155; border-radius: 10px; }
+    </style>
+</head>
+<body class="p-4 flex flex-col items-center min-h-screen transition-colors duration-500" id="body-bg">
+
+    <div class="max-w-md w-full space-y-4">
+
+        <div id="header-panel" class="glass-panel rounded-3xl p-5 flex justify-between items-center border-t-2 border-t-emerald-500/50 shadow-lg transition-colors duration-500">
+            <div>
+                <p id="lbl-global-profit" class="text-[9px] font-black text-emerald-500 uppercase tracking-widest">Balance Global</p>
+                <h2 id="global-profit" class="text-2xl font-black text-white font-mono">$0.00</h2>
+            </div>
+            <div class="text-right">
+                <p class="text-[9px] font-black text-slate-500 uppercase tracking-widest" id="current-date">--/--/----</p>
+                <div class="flex items-center justify-end gap-2 mt-1">
+                    <span id="api-txt" class="text-xs font-bold text-slate-400">Offline</span>
+                    <div id="conn-status" class="w-2.5 h-2.5 rounded-full bg-red-500"></div>
+                </div>
+            </div>
+        </div>
+
+        <div id="setup-panel" class="glass-panel rounded-3xl p-6 space-y-4 shadow-xl relative overflow-hidden">
+            <h3 class="text-center text-xs font-black text-slate-300 uppercase tracking-widest border-b border-slate-700 pb-3">Oracle Quant V21 (Dual Core)</h3>
+            
+            <div class="space-y-3 pt-2">
+                <div class="p-3 bg-slate-900/80 rounded-xl border border-slate-700 shadow-inner">
+                    <label class="text-[10px] font-black text-white uppercase block mb-2 text-center tracking-widest">Estrategia Operativa</label>
+                    <select id="cfg-strategy" onchange="autoConfigureStrategy()" class="w-full bg-black border border-slate-600 text-sm font-bold p-3 rounded-lg outline-none text-white text-center appearance-none cursor-pointer">
+                        <option value="under7">🛡️ MODO SEGURO (Under 7 | Payout 40%)</option>
+                        <option value="over7">🎯 MODO SNIPER (Over 7 | Payout 370%)</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label class="text-[10px] font-bold text-slate-400 uppercase block mb-1">Mercado Inicial</label>
+                    <select id="cfg-asset" class="w-full bg-slate-900 border border-slate-700 text-sm font-bold p-3 rounded-xl outline-none text-sky-400">
+                        <option value="R_10">Volatility 10 Index</option>
+                        <option value="R_25">Volatility 25 Index</option>
+                        <option value="R_50" selected>Volatility 50 Index</option>
+                        <option value="R_75">Volatility 75 Index</option>
+                        <option value="R_100">Volatility 100 Index</option>
+                    </select>
+                </div>
+
+                <div class="grid grid-cols-2 gap-3 mb-3">
+                    <div>
+                        <label class="text-[10px] font-bold text-slate-400 uppercase block mb-1">Caja Base (USD)</label>
+                        <input type="number" id="cfg-stake" value="10" step="1" class="w-full bg-slate-900 border border-slate-700 p-3 rounded-xl font-bold outline-none text-white font-mono text-center">
+                    </div>
+                    <div>
+                        <label class="text-[10px] font-bold text-slate-400 uppercase block mb-1">Payout Bróker (%)</label>
+                        <input type="number" id="cfg-payout" value="40.0" step="0.1" class="w-full bg-slate-900 border border-slate-700 p-3 rounded-xl font-bold outline-none text-amber-400 font-mono text-center">
+                    </div>
+                </div>
+                <div>
+                    <label class="text-[10px] font-bold text-slate-400 uppercase block mb-1">Modo de Gestión</label>
+                    <select id="cfg-mode" class="w-full bg-slate-900 border border-slate-700 p-3 rounded-xl font-bold outline-none text-emerald-400">
+                        <option value="fijo">Monto Fijo</option>
+                        <option value="compuesto" selected>Compuesto Clásico</option>
+                        <option value="diferido">Compuesto Diferido (Seguro)</option>
+                        <option value="donguy">Don Guy (Vuelo Libre)</option>
+                    </select>
+                </div>
+            </div>
+
+            <button id="btn-start" onclick="startSession()" class="w-full mt-4 py-4 bg-emerald-600 hover:bg-emerald-500 rounded-xl text-white font-black uppercase tracking-widest text-xs transition-all shadow-[0_0_15px_rgba(16,185,129,0.3)] active:scale-95">Inicializar Motor</button>
+        </div>
+
+        <div id="main-panel" class="hidden space-y-4">
+            
+            <div id="multi-dash-panel" class="glass-panel rounded-3xl p-4 relative border-b-2 border-b-sky-500/30 transition-colors duration-500">
+                <p class="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-3 text-center">Escáner Multi-Mercado (Shadow Buffer)</p>
+                <div class="flex justify-between items-center gap-2" id="multi-dash-grid">
+                    <button onclick="switchMarket('R_10')" id="dash-card-R_10" class="flex-1 bg-slate-900/50 rounded-xl p-2 border border-slate-700 transition-all flex flex-col items-center gap-1 active:scale-95"><span class="text-[9px] font-bold text-slate-300">V10</span><div id="dash-dot-R_10" class="w-2.5 h-2.5 rounded-full bg-slate-600"></div></button>
+                    <button onclick="switchMarket('R_25')" id="dash-card-R_25" class="flex-1 bg-slate-900/50 rounded-xl p-2 border border-slate-700 transition-all flex flex-col items-center gap-1 active:scale-95"><span class="text-[9px] font-bold text-slate-300">V25</span><div id="dash-dot-R_25" class="w-2.5 h-2.5 rounded-full bg-slate-600"></div></button>
+                    <button onclick="switchMarket('R_50')" id="dash-card-R_50" class="flex-1 bg-slate-900/50 rounded-xl p-2 border border-slate-700 transition-all flex flex-col items-center gap-1 active:scale-95"><span class="text-[9px] font-bold text-slate-300">V50</span><div id="dash-dot-R_50" class="w-2.5 h-2.5 rounded-full bg-slate-600"></div></button>
+                    <button onclick="switchMarket('R_75')" id="dash-card-R_75" class="flex-1 bg-slate-900/50 rounded-xl p-2 border border-slate-700 transition-all flex flex-col items-center gap-1 active:scale-95"><span class="text-[9px] font-bold text-slate-300">V75</span><div id="dash-dot-R_75" class="w-2.5 h-2.5 rounded-full bg-slate-600"></div></button>
+                    <button onclick="switchMarket('R_100')" id="dash-card-R_100" class="flex-1 bg-slate-900/50 rounded-xl p-2 border border-slate-700 transition-all flex flex-col items-center gap-1 active:scale-95"><span class="text-[9px] font-bold text-slate-300">V100</span><div id="dash-dot-R_100" class="w-2.5 h-2.5 rounded-full bg-slate-600"></div></button>
+                </div>
+            </div>
+
+            <div class="glass-panel rounded-3xl p-5 relative">
+                <div class="flex justify-between items-center mb-4">
+                    <span class="text-[10px] font-black text-white uppercase tracking-widest px-2 py-1 rounded transition-colors duration-500" id="lbl-asset">V50</span>
+                    <p id="buffer-text" class="text-xs font-mono text-amber-500 font-bold bg-amber-900/20 px-2 py-1 rounded border border-amber-500/20">Calibrando: 0/64</p>
+                </div>
+
+                <div class="flex items-center justify-center gap-3 mb-5 border-y border-slate-700/50 py-4">
+                    <div id="t-2" class="w-10 h-10 rounded-lg bg-slate-800 flex items-center justify-center text-slate-500 font-mono text-sm border border-slate-700">-</div>
+                    <div id="t-1" class="w-12 h-12 rounded-xl bg-slate-700 flex items-center justify-center text-slate-300 font-mono text-lg border border-slate-600">-</div>
+                    <div id="t-0" class="w-16 h-16 rounded-2xl bg-black flex items-center justify-center text-white font-mono text-3xl font-black border-2 border-slate-500 transition-all">-</div>
+                </div>
+
+                <div class="grid grid-cols-3 gap-2 mb-4">
+                    <div class="metric-card rounded-lg p-2 flex flex-col justify-between">
+                        <p id="lbl-t1-title" class="text-[7px] text-center text-slate-400 uppercase font-bold tracking-widest mb-1">Filtro Aire</p>
+                        <p id="m-t1-val" class="text-xs text-center font-mono font-black text-slate-500 my-1">--</p>
+                        <div id="lbl-t1-sub" class="text-[6px] font-mono font-bold border-t border-slate-700/50 pt-1 flex justify-between px-1"></div>
+                    </div>
+                    <div class="metric-card rounded-lg p-2 flex flex-col justify-between">
+                        <p id="lbl-t2-title" class="text-[7px] text-center text-slate-400 uppercase font-bold tracking-widest mb-1">Riesgo Markov</p>
+                        <p id="m-t2-val" class="text-xs text-center font-mono font-bold text-slate-500 my-1">--%</p>
+                        <div id="lbl-t2-sub" class="text-[6px] font-mono font-bold border-t border-slate-700/50 pt-1 flex justify-between px-1"></div>
+                    </div>
+                    <div class="metric-card rounded-lg p-2 flex flex-col justify-between">
+                        <p id="lbl-t3-title" class="text-[7px] text-center text-slate-400 uppercase font-bold tracking-widest mb-1">Densidad Poisson</p>
+                        <p id="m-t3-val" class="text-xs text-center font-mono font-bold text-slate-500 my-1">--%</p>
+                        <div id="lbl-t3-sub" class="text-[6px] font-mono font-bold border-t border-slate-700/50 pt-1 flex justify-between px-1"></div>
+                    </div>
+                </div>
+
+                <div class="mb-4 border-t border-slate-700/50 pt-4">
+                    <p class="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-3 text-center flex items-center justify-center gap-1" id="lbl-dq-header">
+                        Física Cuántica & Dark Quant
+                    </p>
+                    
+                    <div class="grid grid-cols-3 gap-2 mb-2">
+                        <div class="metric-card rounded-lg p-2 flex flex-col justify-between">
+                            <p class="text-[7px] text-center text-slate-400 uppercase font-bold tracking-widest mb-1">Viterbi 15T</p>
+                            <div id="box-viterbi" class="text-center rounded mt-1 p-1"><p id="m-viterbi" class="text-[8px] font-black tracking-widest uppercase text-slate-500">Calc...</p></div>
+                        </div>
+                        <div class="metric-card rounded-lg p-2 flex flex-col justify-between">
+                            <p class="text-[7px] text-center text-slate-400 uppercase font-bold tracking-widest mb-1">Hurst 64T</p>
+                            <p id="m-hurst" class="text-sm text-center font-mono font-black text-slate-500 my-1">0.00</p>
+                        </div>
+                        <div class="metric-card rounded-lg p-2 flex flex-col justify-between">
+                            <p class="text-[7px] text-center text-slate-400 uppercase font-bold tracking-widest mb-1">Percol. 21T</p>
+                            <p id="m-percolation" class="text-sm text-center font-mono font-black text-slate-500 my-1">0%</p>
+                        </div>
+                    </div>
+                    
+                    <div class="grid grid-cols-2 gap-2">
+                        <div class="metric-card rounded-lg p-2 flex flex-col justify-between">
+                            <p id="lbl-fourier-title" class="text-[7px] text-center text-slate-400 uppercase font-bold tracking-widest mb-1">Fourier 64T</p>
+                            <p id="m-fourier" class="text-sm text-center font-mono font-black text-slate-500 my-1">--</p>
+                            <p id="lbl-fourier" class="text-[6px] text-center font-bold text-slate-500 uppercase">Calc...</p>
+                        </div>
+                        <div class="metric-card rounded-lg p-2 flex flex-col justify-between">
+                            <p class="text-[7px] text-center text-slate-400 uppercase font-bold tracking-widest mb-1">Fase Cuántica</p>
+                            <p id="m-quantum" class="text-sm text-center font-mono font-black text-slate-500 my-1">--%</p>
+                            <p id="lbl-quantum" class="text-[6px] text-center font-bold text-slate-500 uppercase">Calc...</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="master-signal" class="bg-slate-900 rounded-xl p-4 text-center border border-slate-700 transition-colors duration-300">
+                    <h4 id="action-text" class="text-xs font-black text-slate-500 uppercase tracking-widest">Esperando Datos...</h4>
+                </div>
+
+                <div class="mt-5 border-t border-slate-700/50 pt-4">
+                    <p class="text-[8px] font-black text-slate-500 uppercase tracking-widest mb-2 text-center" id="lbl-heatmap-title">Heatmap: Probabilidad Empírica (64 Ticks)</p>
+                    <div class="grid grid-cols-5 gap-1.5" id="heatmap-grid">
+                        <div id="hm-0" class="flex flex-col items-center justify-center py-1.5 rounded-lg border border-slate-700 bg-slate-800 transition-colors"><span class="text-[10px] font-bold text-white">0</span><span id="hm-p-0" class="text-[9px] font-mono text-slate-400">-%</span></div>
+                        <div id="hm-1" class="flex flex-col items-center justify-center py-1.5 rounded-lg border border-slate-700 bg-slate-800 transition-colors"><span class="text-[10px] font-bold text-white">1</span><span id="hm-p-1" class="text-[9px] font-mono text-slate-400">-%</span></div>
+                        <div id="hm-2" class="flex flex-col items-center justify-center py-1.5 rounded-lg border border-slate-700 bg-slate-800 transition-colors"><span class="text-[10px] font-bold text-white">2</span><span id="hm-p-2" class="text-[9px] font-mono text-slate-400">-%</span></div>
+                        <div id="hm-3" class="flex flex-col items-center justify-center py-1.5 rounded-lg border border-slate-700 bg-slate-800 transition-colors"><span class="text-[10px] font-bold text-white">3</span><span id="hm-p-3" class="text-[9px] font-mono text-slate-400">-%</span></div>
+                        <div id="hm-4" class="flex flex-col items-center justify-center py-1.5 rounded-lg border border-slate-700 bg-slate-800 transition-colors"><span class="text-[10px] font-bold text-white">4</span><span id="hm-p-4" class="text-[9px] font-mono text-slate-400">-%</span></div>
+                        <div id="hm-5" class="flex flex-col items-center justify-center py-1.5 rounded-lg border border-slate-700 bg-slate-800 transition-colors"><span class="text-[10px] font-bold text-white">5</span><span id="hm-p-5" class="text-[9px] font-mono text-slate-400">-%</span></div>
+                        <div id="hm-6" class="flex flex-col items-center justify-center py-1.5 rounded-lg border border-slate-700 bg-slate-800 transition-colors"><span class="text-[10px] font-bold text-white">6</span><span id="hm-p-6" class="text-[9px] font-mono text-slate-400">-%</span></div>
+                        <div id="hm-7" class="flex flex-col items-center justify-center py-1.5 rounded-lg border border-slate-700 bg-slate-800 transition-colors relative overflow-hidden"><span class="text-[10px] font-bold z-10 text-white">7</span><span id="hm-p-7" class="text-[9px] font-mono text-slate-400 z-10">-%</span></div>
+                        <div id="hm-8" class="flex flex-col items-center justify-center py-1.5 rounded-lg border border-slate-700 bg-slate-800 transition-colors relative overflow-hidden"><span class="text-[10px] font-bold z-10 text-white">8</span><span id="hm-p-8" class="text-[9px] font-mono text-slate-400 z-10">-%</span></div>
+                        <div id="hm-9" class="flex flex-col items-center justify-center py-1.5 rounded-lg border border-slate-700 bg-slate-800 transition-colors relative overflow-hidden"><span class="text-[10px] font-bold z-10 text-white">9</span><span id="hm-p-9" class="text-[9px] font-mono text-slate-400 z-10">-%</span></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="glass-panel rounded-3xl p-5">
+                <div class="flex justify-between items-center mb-4">
+                    <div>
+                        <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest">Inversión (Stake)</p>
+                        <div class="text-4xl font-black text-white font-mono mt-1">$<span id="stk-display">0.00</span></div>
+                    </div>
+                    <div class="text-right">
+                        <span id="lbl-mode-active" class="text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded">MODO</span>
+                        <div class="mt-2 text-[10px] font-bold text-slate-400">
+                            Neto Sesión: <span id="temp-profit" class="font-mono">$0.00</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-black/40 rounded-xl p-3 mb-5 border border-white/5 flex justify-between items-center">
+                    <div class="flex flex-col items-center flex-1">
+                        <span id="lbl-wins-txt" class="text-[8px] text-emerald-500 font-bold uppercase mb-1">Aciertos</span>
+                        <div class="text-emerald-400 font-mono font-black" id="txt-wins">0</div>
+                    </div>
+                    <div class="h-6 w-px bg-slate-700 mx-2"></div>
+                    <div class="flex flex-col items-center flex-1">
+                        <span id="lbl-loss-txt" class="text-[8px] text-red-500 font-bold uppercase mb-1">Derrotas</span>
+                        <div class="text-red-400 font-mono font-black" id="txt-losses">0</div>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-3">
+                    <button onclick="recordTrade(false)" id="btn-loss" class="py-4 bg-slate-800 border border-slate-700 rounded-xl font-black text-slate-400 uppercase tracking-widest text-xs active:scale-95 transition-all">❌ Perdí</button>
+                    <button onclick="recordTrade(true)" id="btn-win" class="py-4 rounded-xl font-black text-white uppercase tracking-widest text-xs active:scale-95 transition-all">✅ Gané</button>
+                </div>
+            </div>
+
+            <div class="glass-panel rounded-3xl p-5 space-y-4">
+                <div class="flex justify-between items-center">
+                    <h4 class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Journal (Historial)</h4>
+                    <button onclick="clearJournal()" class="text-[9px] text-red-400 uppercase font-bold hover:underline">Limpiar</button>
+                </div>
+                <div id="journal-list" class="space-y-2 max-h-40 overflow-y-auto custom-scroll pr-2"></div>
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+        const TARGET = 7; 
+        let ws;
+        const dashAssets = ['R_10', 'R_25', 'R_50', 'R_75', 'R_100'];
+        let bgMarkets = {};
+        let tickBuffer = [];
+        let tickVisuals = ['-', '-', '-'];
+        
+        // Contadores Dinámicos
+        let countAir = 0; // Para Under 7
+        let countPressure = 0; // Para Over 7
+        
+        let db = {
+            profit: parseFloat(localStorage.getItem('oracle_v21_profit')) || 0,
+            logs: JSON.parse(localStorage.getItem('oracle_v21_logs')) || []
+        };
+
+        let session = {
+            active: false, asset: '', strategy: 'under7', baseStake: 10, payoutRate: 0.40, multiplier: 1.40, mode: 'compuesto',
+            wins: 0, losses: 0, profit: 0, currentStreak: 0, currentLossStreak: 0
+        };
+
+        // ================= UI DYNAMICS & CONFIG =================
+        
+        window.onload = () => {
+            document.getElementById('current-date').innerText = new Date().toLocaleDateString('es-AR', {day: '2-digit', month: 'short', year: 'numeric'});
+            autoConfigureStrategy();
+            renderJournal();
+        };
+
+        function autoConfigureStrategy() {
+            let strat = document.getElementById('cfg-strategy').value;
+            let btn = document.getElementById('btn-start');
+            let body = document.getElementById('body-bg');
+            
+            if (strat === 'under7') {
+                document.getElementById('cfg-stake').value = 10;
+                document.getElementById('cfg-payout').value = 40.0;
+                document.getElementById('cfg-mode').value = 'compuesto';
+                btn.className = "w-full mt-4 py-4 bg-emerald-600 hover:bg-emerald-500 rounded-xl text-white font-black uppercase tracking-widest text-xs transition-all shadow-[0_0_15px_rgba(16,185,129,0.3)] active:scale-95";
+                body.style.backgroundColor = "#030712"; // Deep Blue/Gray
+            } else {
+                document.getElementById('cfg-stake').value = 5;
+                document.getElementById('cfg-payout').value = 370.0;
+                document.getElementById('cfg-mode').value = 'fijo';
+                btn.className = "w-full mt-4 py-4 bg-purple-600 hover:bg-purple-500 rounded-xl text-white font-black uppercase tracking-widest text-xs transition-all shadow-[0_0_15px_rgba(168,85,247,0.4)] active:scale-95";
+                body.style.backgroundColor = "#0f071a"; // Deep Purple
+            }
+        }
+
+        function applyThemeToUI() {
+            let strat = session.strategy;
+            let isUnder = strat === 'under7';
+            
+            // Colores Header y Paneles
+            let cMain = isUnder ? 'emerald' : 'purple';
+            let cSec = isUnder ? 'sky' : 'emerald';
+            
+            document.getElementById('header-panel').className = `glass-panel rounded-3xl p-5 flex justify-between items-center border-t-2 border-t-${cMain}-500/50 shadow-lg transition-colors duration-500`;
+            document.getElementById('lbl-global-profit').className = `text-[9px] font-black text-${cMain}-500 uppercase tracking-widest`;
+            document.getElementById('lbl-global-profit').innerText = isUnder ? "Balance Global (Seguro)" : "Balance Global (Sniper)";
+            
+            document.getElementById('multi-dash-panel').className = `glass-panel rounded-3xl p-4 relative border-b-2 border-b-${cSec}-500/30 transition-colors duration-500`;
+            document.getElementById('multi-dash-panel').querySelector('p').className = `text-[8px] font-black text-${cSec}-400 uppercase tracking-widest mb-3 text-center`;
+            
+            document.getElementById('lbl-asset').className = `text-[10px] font-black text-white uppercase tracking-widest bg-${cSec}-900/40 border border-${cSec}-500/30 px-2 py-1 rounded transition-colors duration-500`;
+            
+            // Labels de Telemetría
+            document.getElementById('lbl-t1-title').innerText = isUnder ? "Filtro Aire" : "Presión (Aire)";
+            document.getElementById('lbl-t1-sub').innerHTML = isUnder ? `<span class="text-emerald-500/70">≥3</span><span class="text-sky-500/70">&lt;3</span>` : `<span class="text-slate-500/70">Bajo</span><span class="text-purple-500/70">Alto (>5)</span>`;
+            
+            document.getElementById('lbl-t2-title').innerText = isUnder ? "Riesgo Markov" : "Salto Markov";
+            document.getElementById('lbl-t2-sub').innerHTML = isUnder ? `<span class="text-emerald-500/70">≤35</span><span class="text-red-500/70">&gt;35</span>` : `<span class="text-slate-500/70">Bajo</span><span class="text-purple-500/70">Alto</span>`;
+            
+            document.getElementById('lbl-t3-title').innerText = isUnder ? "Prob. Poisson" : "Dens. Poisson";
+            document.getElementById('lbl-t3-sub').innerHTML = isUnder ? `<span class="text-emerald-500/70">≤65</span><span class="text-red-500/70">&gt;65</span>` : `<span class="text-slate-500/70">Bajo</span><span class="text-purple-500/70">Alto</span>`;
+
+            document.getElementById('lbl-dq-header').className = `text-[8px] font-black text-${cMain}-400 uppercase tracking-widest mb-3 text-center flex items-center justify-center gap-1`;
+            document.getElementById('lbl-fourier-title').innerText = isUnder ? "Fourier 64T (Evasión)" : "Fourier 64T (Gatillo)";
+
+            // Botones de Gestión
+            let btnWin = document.getElementById('btn-win');
+            let btnLoss = document.getElementById('btn-loss');
+            let lblModeActive = document.getElementById('lbl-mode-active');
+            
+            lblModeActive.innerText = session.mode.toUpperCase();
+            lblModeActive.className = `text-[9px] font-black text-${cMain}-400 uppercase tracking-widest bg-${cMain}-900/20 px-2 py-1 rounded border border-${cMain}-500/20`;
+
+            if (isUnder) {
+                btnWin.innerHTML = "✅ Acierto (0-6)";
+                btnWin.className = "py-4 bg-emerald-600 rounded-xl font-black text-white uppercase tracking-widest text-xs hover:bg-emerald-500 active:scale-95 transition-all shadow-[0_0_15px_rgba(16,185,129,0.2)]";
+                btnLoss.innerHTML = "❌ Fallo (7-9)";
+                btnLoss.className = "py-4 bg-slate-800 border border-slate-700 rounded-xl font-black text-red-400 uppercase tracking-widest text-xs hover:bg-red-900/30 active:scale-95 transition-all";
+                document.getElementById('lbl-wins-txt').innerText = "Aciertos (3 Máx)";
+                document.getElementById('lbl-loss-txt').innerText = "Derrotas (2 Máx)";
+            } else {
+                btnWin.innerHTML = "🎯 Caza (7-9)";
+                btnWin.className = "py-4 bg-purple-600 rounded-xl font-black text-white uppercase tracking-widest text-xs hover:bg-purple-500 active:scale-95 transition-all shadow-[0_0_15px_rgba(168,85,247,0.3)]";
+                btnLoss.innerHTML = "❌ Fallo (0-6)";
+                btnLoss.className = "py-4 bg-slate-800 border border-slate-700 rounded-xl font-black text-slate-400 uppercase tracking-widest text-xs hover:bg-slate-700 active:scale-95 transition-all";
+                document.getElementById('lbl-wins-txt').innerText = "Cazas Exitosas";
+                document.getElementById('lbl-loss-txt').innerText = "Fallos Seguidos";
+            }
+        }
+
+        // ================= LIFECYCLE & MATH =================
+
+        function initBackgroundMarkets() {
+            dashAssets.forEach(a => { bgMarkets[a] = { buffer: [], airCount: 0, pressureCount: 0, status: 'gray' }; });
+        }
+
+        function startSession() {
+            session.strategy = document.getElementById('cfg-strategy').value;
+            session.asset = document.getElementById('cfg-asset').value;
+            session.baseStake = parseFloat(document.getElementById('cfg-stake').value);
+            session.payoutRate = parseFloat(document.getElementById('cfg-payout').value) / 100;
+            session.multiplier = 1 + session.payoutRate;
+            session.mode = document.getElementById('cfg-mode').value;
+            
+            session.wins = 0; session.losses = 0; session.profit = 0; session.currentStreak = 0; session.currentLossStreak = 0;
+            session.active = true;
+            
+            initBackgroundMarkets();
+            if(!bgMarkets[session.asset]) bgMarkets[session.asset] = { buffer: [], airCount: 0, pressureCount: 0, status: 'gray' };
+            
+            tickBuffer = []; tickVisuals = ['-','-','-']; countAir = 0; countPressure = 0;
+
+            document.getElementById('setup-panel').classList.add('hidden');
+            document.getElementById('main-panel').classList.remove('hidden');
+            
+            let nameMap = { 'R_10': 'V10', 'R_25': 'V25', 'R_50': 'V50', 'R_75': 'V75', 'R_100': 'V100' };
+            document.getElementById('lbl-asset').innerText = nameMap[session.asset] || session.asset; 
+            
+            applyThemeToUI();
+            updateUI(); updateDashSelection(); connectAPI();
+        }
+
+        function getStake() {
+            let b = session.baseStake, m = session.multiplier, p = session.payoutRate, s = session.currentStreak;
+            if (session.mode === 'fijo') return b;
+            if (session.mode === 'compuesto') return round(b * Math.pow(m, s));
+            if (session.mode === 'diferido') {
+                if (s === 0 || s === 1) return b;
+                else return round((b + (b*p*2)) * Math.pow(m, s-2));
+            }
+            if (session.mode === 'donguy') {
+                if (s === 0) return b;
+                if (s === 1) return round(b * m);
+                return round(((b*m*m)-b) * Math.pow(m, s-2));
+            }
+            return b;
+        }
+
+        function round(num) { return Math.round(num * 100) / 100; }
+
+        function recordTrade(win) {
+            if(!session.active) return;
+            let currentWager = getStake();
+            
+            if (win) {
+                session.wins++; session.currentLossStreak = 0;
+                session.profit = round(session.profit + round(currentWager * session.payoutRate));
+                if (session.mode !== 'fijo') session.currentStreak++;
+            } else {
+                if (session.mode === 'donguy' && session.currentStreak >= 2) {
+                    session.profit = round(session.profit - currentWager);
+                    endSession(true, 'Cashout Libre'); return; 
+                }
+                session.losses++; session.currentLossStreak++;
+                session.profit = round(session.profit - currentWager);
+                if (session.mode !== 'fijo') session.currentStreak = 0; 
+            }
+
+            countAir = 0; countPressure = 0;
+            if(bgMarkets[session.asset]) { bgMarkets[session.asset].airCount = 0; bgMarkets[session.asset].pressureCount = 0; }
+            
+            document.getElementById('master-signal').className = "bg-slate-900 rounded-xl p-4 text-center border border-slate-700 transition-colors duration-300";
+            document.getElementById('action-text').innerText = "RECALCULANDO...";
+            updateUI();
+
+            // End conditions for Under 7
+            if (session.strategy === 'under7') {
+                let isSuccess = false;
+                if (session.mode === 'fijo') isSuccess = session.wins >= 3;
+                else if (session.mode === 'compuesto' || session.mode === 'diferido') isSuccess = session.currentStreak >= 3;
+                if ((isSuccess && session.mode !== 'donguy') || session.losses >= 2) {
+                    setTimeout(() => endSession(isSuccess, isSuccess?'Meta Alcanzada':'Límite 2 Balas'), 300);
+                }
+            }
+        }
+
+        function endSession(success, reason = '') {
+            session.active = false; if(ws) ws.close();
+            db.profit = round(db.profit + session.profit);
+            
+            let logEntry = {
+                date: new Date().toLocaleString('es-AR', {hour: '2-digit', minute:'2-digit'}),
+                asset: session.asset, mode: session.strategy.toUpperCase() + " " + session.mode,
+                result: session.profit > 0 ? 'PROFIT' : 'LOSS',
+                profit: session.profit.toFixed(2), success: session.profit > 0
+            };
+            
+            db.logs.unshift(logEntry);
+            localStorage.setItem('oracle_v21_profit', db.profit);
+            localStorage.setItem('oracle_v21_logs', JSON.stringify(db.logs));
+            
+            document.getElementById('main-panel').classList.add('hidden');
+            document.getElementById('setup-panel').classList.remove('hidden');
+            renderJournal();
+        }
+
+        function updateUI() {
+            document.getElementById('stk-display').innerText = getStake().toFixed(2);
+            document.getElementById('temp-profit').innerText = `${session.profit >= 0 ? '+' : ''}$${session.profit.toFixed(2)}`;
+            let isUnder = session.strategy === 'under7';
+            document.getElementById('temp-profit').className = `font-mono ${session.profit >= 0 ? (isUnder?'text-emerald-400':'text-purple-400') : 'text-red-400'}`;
+            
+            if(isUnder) {
+                document.getElementById('txt-wins').innerText = session.wins;
+                document.getElementById('txt-losses').innerText = session.losses;
+            } else {
+                document.getElementById('txt-wins').innerText = session.wins;
+                document.getElementById('txt-losses').innerText = session.currentLossStreak;
+            }
+        }
+
+        // ================= MARKET & DASHBOARD =================
+
+        function switchMarket(newSymbol) {
+            if(newSymbol === session.asset) return; 
+            session.asset = newSymbol;
+            let nameMap = { 'R_10': 'V10', 'R_25': 'V25', 'R_50': 'V50', 'R_75': 'V75', 'R_100': 'V100' };
+            document.getElementById('lbl-asset').innerText = nameMap[newSymbol] || newSymbol;
+            
+            let mk = bgMarkets[newSymbol];
+            tickBuffer = [...mk.buffer];
+            countAir = mk.airCount; countPressure = mk.pressureCount;
+            
+            tickVisuals = ['-','-','-'];
+            for(let i=1; i<=3; i++) if(tickBuffer.length >= i) tickVisuals[3-i] = tickBuffer[tickBuffer.length-i];
+            
+            document.getElementById('t-2').innerText = tickVisuals[0];
+            document.getElementById('t-1').innerText = tickVisuals[1];
+            let t0 = tickVisuals[2];
+            let el0 = document.getElementById('t-0');
+            el0.innerText = t0;
+            if(t0 !== '-') applyTickColor(el0, t0);
+            
+            updateDashSelection();
+            if (tickBuffer.length > 0) { analyzeMarket(t0); updateHeatmap(); }
+        }
+
+        function updateDashSelection() {
+            let isUnder = session.strategy === 'under7';
+            let cActive = isUnder ? 'sky' : 'purple';
+            dashAssets.forEach(sym => {
+                let card = document.getElementById('dash-card-' + sym);
+                if(!card) return;
+                let text = card.querySelector('span');
+                if (sym === session.asset) {
+                    card.className = `flex-1 bg-${cActive}-900/30 rounded-xl p-2 border border-${cActive}-500/50 transition-all flex flex-col items-center gap-1 active:scale-95`;
+                    text.className = `text-[9px] font-bold text-${cActive}-400`;
+                } else {
+                    card.className = "flex-1 bg-slate-900/50 rounded-xl p-2 border border-slate-700 hover:bg-slate-800 transition-all flex flex-col items-center gap-1 active:scale-95";
+                    text.className = "text-[9px] font-bold text-slate-300";
+                }
+            });
+        }
+
+        function applyTickColor(el, digit) {
+            let isUnder = session.strategy === 'under7';
+            if (isUnder) {
+                el.className = `w-16 h-16 rounded-2xl flex items-center justify-center font-mono text-3xl font-black border-2 transition-all ${digit >= TARGET ? 'bg-red-950 text-red-500 border-red-500 scale-105' : 'bg-black text-white border-slate-500'}`;
+            } else {
+                el.className = `w-16 h-16 rounded-2xl flex items-center justify-center font-mono text-3xl font-black border-2 transition-all ${digit >= TARGET ? 'bg-emerald-950 text-emerald-500 border-emerald-500 scale-105 shadow-[0_0_15px_rgba(16,185,129,0.5)]' : 'bg-black text-slate-500 border-slate-700'}`;
+            }
+        }
+
+        // ================= API & BACKGROUND =================
+
+        function connectAPI() {
+            let connStatus = document.getElementById('conn-status');
+            let apiTxt = document.getElementById('api-txt');
+            connStatus.className = "w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse";
+            apiTxt.innerText = "Conectando...";
+            
+            ws = new WebSocket("wss://ws.derivws.com/websockets/v3?app_id=1089");
+
+            ws.onopen = () => {
+                connStatus.className = "w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.8)]";
+                apiTxt.innerText = session.strategy === 'under7' ? "Online (Seguro)" : "Online (Sniper)";
+                let toSub = new Set([session.asset, ...dashAssets]);
+                toSub.forEach(sym => { ws.send(JSON.stringify({ ticks: sym, subscribe: 1 })); });
+            };
+
+            ws.onmessage = (msg) => {
+                let data = JSON.parse(msg.data);
+                if (data.tick && session.active) {
+                    let sym = data.tick.symbol;
+                    let digit = parseInt(data.tick.quote.toFixed(4).slice(-1));
+                    if (bgMarkets[sym]) processBackgroundTick(sym, digit);
+                    if (sym === session.asset) processLiveTick(digit);
+                }
+            };
+
+            ws.onclose = () => {
+                if(session.active) {
+                    connStatus.className = "w-2.5 h-2.5 rounded-full bg-red-500";
+                    apiTxt.innerText = "Reconectando...";
+                    setTimeout(connectAPI, 2000);
+                }
+            };
+        }
+
+        function processBackgroundTick(sym, digit) {
+            let mk = bgMarkets[sym];
+            mk.buffer.push(digit);
+            if(mk.buffer.length > 64) mk.buffer.shift();
+            
+            if(digit < TARGET) { mk.airCount++; mk.pressureCount++; }
+            else { mk.airCount=0; mk.pressureCount=0; }
+            
+            let n = mk.buffer.length;
+            if (n < 64) { mk.status = 'gray'; } 
+            else {
+                if (session.strategy === 'under7') {
+                    let lh = 0, ll = 0;
+                    for(let i=0; i<n-1; i++) {
+                        if(mk.buffer[i]<TARGET) { if(mk.buffer[i+1]>=TARGET) lh++; else ll++; }
+                    }
+                    let markov = (lh+ll)>0 ? (lh/(lh+ll))*100 : 0;
+                    let highs = mk.buffer.filter(d=>d>=TARGET).length;
+                    let poisson = (1 - Math.exp(-(highs/n)*3))*100;
+                    
+                    if (digit >= TARGET) mk.status = 'red';
+                    else if (mk.airCount >= 3) mk.status = (markov <= 35 && poisson <= 65) ? 'green' : 'amber';
+                    else mk.status = 'amber-dim';
+                } else {
+                    if (digit >= TARGET) mk.status = 'green'; 
+                    else if (mk.pressureCount >= 6) mk.status = 'purple'; 
+                    else mk.status = 'gray';
+                }
+            }
+            
+            if (dashAssets.includes(sym)) {
+                let dot = document.getElementById('dash-dot-' + sym);
+                if(dot) {
+                    let base = "w-2.5 h-2.5 rounded-full transition-all duration-300 ";
+                    if(mk.status === 'gray') dot.className = base + "bg-slate-700";
+                    else if(mk.status === 'red') dot.className = base + "bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.8)]";
+                    else if(mk.status === 'amber-dim') dot.className = base + "bg-amber-600/50";
+                    else if(mk.status === 'amber') dot.className = base + "bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.8)]";
+                    else if(mk.status === 'green') dot.className = base + "bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,1)] pulse-green";
+                    else if(mk.status === 'purple') dot.className = base + "bg-purple-500 shadow-[0_0_10px_rgba(168,85,247,1)] pulse-purple";
+                }
+            }
+        }
+
+        // ================= ALGORITMOS FÍSICOS =================
+        
+        function calculateFourier(ticks) {
+            let N = ticks.length;
+            if (N < 64) return { period: 0, danger: false, strike: false };
+            let real = new Array(N).fill(0), imag = new Array(N).fill(0);
+            let signal = ticks.map(t => t >= TARGET ? 1 : -1); 
+
+            for (let k = 0; k < N; k++) {
+                for (let n = 0; n < N; n++) {
+                    let angle = (2 * Math.PI * k * n) / N;
+                    real[k] += signal[n] * Math.cos(angle);
+                    imag[k] -= signal[n] * Math.sin(angle);
+                }
+            }
+            
+            let maxMag = 0, peakK = 1;
+            for (let k = 1; k < N/2; k++) { 
+                let mag = Math.sqrt(real[k]*real[k] + imag[k]*imag[k]);
+                if (mag > maxMag) { maxMag = mag; peakK = k; }
+            }
+            
+            let period = Math.round(N / peakK) || 1; 
+            let position = N % period;
+            
+            let danger = (position === 0 || position === period - 1 || position === 1) && (maxMag > 12.0);
+            let strike = (position === 0 || position === period - 1) && (maxMag > 10.0);
+            
+            return { period, danger, strike };
+        }
+
+        function processLiveTick(digit) {
+            tickVisuals.shift(); tickVisuals.push(digit);
+            
+            document.getElementById('t-2').innerText = tickVisuals[0];
+            document.getElementById('t-1').innerText = tickVisuals[1];
+            let t0 = document.getElementById('t-0');
+            t0.innerText = tickVisuals[2];
+            applyTickColor(t0, digit);
+
+            tickBuffer.push(digit);
+            if (tickBuffer.length > 64) tickBuffer.shift();
+
+            let bufferTxt = document.getElementById('buffer-text');
+            if (tickBuffer.length < 64) {
+                bufferTxt.innerText = `Calibrando: ${tickBuffer.length}/64`;
+                bufferTxt.className = "text-xs font-mono text-amber-500 font-bold bg-amber-900/20 px-2 py-1 rounded border border-amber-500/20";
+            } else {
+                bufferTxt.innerText = session.strategy === 'under7' ? "Motor Activo" : "Cacería Activa";
+                let c = session.strategy === 'under7' ? 'emerald' : 'purple';
+                bufferTxt.className = `text-[10px] font-black text-${c}-400 uppercase tracking-widest bg-${c}-900/20 px-2 py-1 rounded border border-${c}-500/20`;
+            }
+
+            analyzeMarket(digit);
+            updateHeatmap();
+        }
+
+        function analyzeMarket(currentDigit) {
+            let n = tickBuffer.length;
+            let isUnder = session.strategy === 'under7';
+            
+            if (currentDigit < TARGET) { countAir++; countPressure++; } 
+            else { countAir = 0; countPressure = 0; }
+
+            // 1. DUAL MARKOV & POISSON
+            let lh = 0, ll = 0;
+            for(let i = 0; i < n - 1; i++) {
+                if (tickBuffer[i] < TARGET) {
+                    if (tickBuffer[i+1] >= TARGET) lh++; else ll++;
+                }
+            }
+            let markovRisk = (lh + ll) > 0 ? (lh / (lh + ll)) * 100 : 0;
+            let highs = tickBuffer.filter(d => d >= TARGET).length;
+            let poissonRisk = (1 - Math.exp(-(highs / n) * 3)) * 100; 
+
+            if (isUnder) {
+                document.getElementById('m-t1-val').innerText = countAir + "/3";
+                document.getElementById('m-t1-val').className = `text-xs text-center font-mono font-black my-1 ${countAir>=3?'text-sky-400':'text-slate-500'}`;
+                document.getElementById('m-t2-val').innerText = markovRisk.toFixed(1) + "%";
+                document.getElementById('m-t2-val').className = `text-xs text-center font-mono font-black my-1 ${markovRisk<=35?'text-emerald-400':'text-red-400'}`;
+                document.getElementById('m-t3-val').innerText = poissonRisk.toFixed(1) + "%";
+                document.getElementById('m-t3-val').className = `text-xs text-center font-mono font-black my-1 ${poissonRisk<=65?'text-emerald-400':'text-red-400'}`;
+            } else {
+                document.getElementById('m-t1-val').innerText = countPressure;
+                document.getElementById('m-t1-val').className = `text-xs text-center font-mono font-black my-1 ${countPressure>=6?'text-purple-400':'text-slate-500'}`;
+                document.getElementById('m-t2-val').innerText = markovRisk.toFixed(1) + "%";
+                document.getElementById('m-t2-val').className = `text-xs text-center font-mono font-black my-1 text-slate-400`;
+                document.getElementById('m-t3-val').innerText = poissonRisk.toFixed(1) + "%";
+                document.getElementById('m-t3-val').className = `text-xs text-center font-mono font-black my-1 text-slate-400`;
+            }
+
+            // 2. DUAL VITERBI HMM (15T)
+            let vitTicks = tickBuffer.slice(-15);
+            let vState = "CALC...", vColor = "text-slate-500", vBg = "bg-transparent";
+            if(vitTicks.length === 15) {
+                let hDens = vitTicks.filter(d => d >= TARGET).length;
+                if (isUnder) {
+                    if(hDens >= 5) { vState = "LIQUIDADOR"; vColor = "text-red-400"; vBg = "bg-red-900/20"; } 
+                    else { vState = "PAGADOR"; vColor = "text-emerald-400"; vBg = "bg-emerald-900/20"; }
+                } else {
+                    if(hDens >= 4) { vState = "MODO CAZA"; vColor = "text-emerald-400"; vBg = "bg-emerald-900/20"; } 
+                    else { vState = "MODO FRÍO"; vColor = "text-slate-500"; vBg = "bg-slate-800/50"; }
+                }
+            }
+            document.getElementById('m-viterbi').innerText = vState;
+            document.getElementById('m-viterbi').className = `text-[8px] font-black tracking-widest uppercase ${vColor}`;
+            document.getElementById('box-viterbi').className = `text-center rounded mt-1 p-1 transition-colors ${vBg}`;
+
+            // 3. HURST & PERCOLACION (Shared base math)
+            let hScore = 0.5;
+            if(n >= 30) {
+                let meanH = tickBuffer.reduce((a,b)=>a+b,0)/n;
+                let varSum = tickBuffer.reduce((a,b)=>a+Math.pow(b-meanH,2),0)/n;
+                if (varSum > 0.001) {
+                    let ac = []; for(let l=1;l<=5;l++){ let c=0; for(let i=0;i<n-l;i++) c+=(tickBuffer[i]-meanH)*(tickBuffer[i+l]-meanH); ac.push((c/(n-l))/varSum); }
+                    hScore = Math.max(0.1, Math.min(0.99, 0.5 + (ac.reduce((a,b)=>a+b,0)/4)));
+                }
+            }
+            document.getElementById('m-hurst').innerText = hScore.toFixed(2);
+            
+            let percTicks = tickBuffer.slice(-21);
+            let percScore = percTicks.length>0 ? (percTicks.filter(d=>d<TARGET).length/percTicks.length)*100 : 0;
+            document.getElementById('m-percolation').innerText = percScore.toFixed(0) + "%";
+
+            // 4. DUAL FOURIER (64T)
+            let fourier = calculateFourier(tickBuffer);
+            let mFourier = document.getElementById('m-fourier'), lblFourier = document.getElementById('lbl-fourier');
+            if (n >= 64) {
+                if (isUnder) {
+                    mFourier.innerText = fourier.period + "T";
+                    if (fourier.danger) { mFourier.className = "text-sm text-center font-mono font-black my-1 text-red-400"; lblFourier.innerText = "EVASIÓN"; lblFourier.className = "text-[6px] text-center font-bold uppercase text-red-400"; } 
+                    else { mFourier.className = "text-sm text-center font-mono font-black my-1 text-sky-400"; lblFourier.innerText = "SEGURO"; lblFourier.className = "text-[6px] text-center font-bold uppercase text-sky-400"; }
+                } else {
+                    if (fourier.strike) { mFourier.innerText = "¡AHORA!"; mFourier.className = "text-sm text-center font-mono font-black my-1 text-emerald-400"; lblFourier.innerText = "ARMÓNICO"; lblFourier.className = "text-[6px] text-center font-bold uppercase text-emerald-400"; } 
+                    else { mFourier.innerText = "Esperando"; mFourier.className = "text-sm text-center font-mono font-black my-1 text-slate-500"; lblFourier.innerText = "Desfasado"; lblFourier.className = "text-[6px] text-center font-bold uppercase text-slate-500"; }
+                }
+            }
+
+            // 5. DUAL QUANTUM PHASE
+            let quantumScore = 0;
+            if (isUnder) {
+                let psi1 = Math.min(countAir / 3, 1.0), psi2 = Math.max(0, 1.0 - (poissonRisk / 100));
+                let dt = Math.PI * Math.abs(psi1 - psi2);
+                quantumScore = (((psi1*psi1) + (psi2*psi2) + 2*psi1*psi2*Math.cos(dt)) / 4) * 100;
+            } else {
+                let psi1 = Math.min(countPressure / 8, 1.0), psi2 = vState === "MODO CAZA" ? 1.0 : 0.0;
+                let dt = Math.PI * Math.abs(psi1 - psi2);
+                quantumScore = (((psi1*psi1) + (psi2*psi2) + 2*psi1*psi2*Math.cos(dt)) / 4) * 100;
+            }
+            if(isNaN(quantumScore)) quantumScore = 0;
+            
+            let mQuantum = document.getElementById('m-quantum'), lblQuantum = document.getElementById('lbl-quantum');
+            mQuantum.innerText = quantumScore.toFixed(0) + "%";
+            if (quantumScore >= 80) { mQuantum.className = `text-sm text-center font-mono font-black my-1 text-${isUnder?'emerald':'purple'}-400`; lblQuantum.innerText = "CONSTRUCTIVA"; lblQuantum.className = `text-[6px] text-center font-bold uppercase text-${isUnder?'emerald':'purple'}-400`; } 
+            else if (quantumScore < 30) { mQuantum.className = "text-sm text-center font-mono font-black my-1 text-red-400"; lblQuantum.innerText = "DESTRUCTIVA"; lblQuantum.className = "text-[6px] text-center font-bold uppercase text-red-400"; } 
+            else { mQuantum.className = "text-sm text-center font-mono font-black my-1 text-slate-500"; lblQuantum.innerText = "NEUTRA"; lblQuantum.className = "text-[6px] text-center font-bold uppercase text-slate-500"; }
+
+            // ================= SEMÁFORO MAESTRO =================
+            let signalBox = document.getElementById('master-signal');
+            let txt = document.getElementById('action-text');
+            if (n < 64) return;
+
+            if (isUnder) {
+                if (currentDigit >= TARGET) {
+                    signalBox.className = "bg-red-950/40 rounded-xl p-4 text-center border border-red-500/30 transition-colors duration-300";
+                    txt.className = "text-sm font-black text-red-500 uppercase tracking-widest"; txt.innerText = "PICO DE VOLATILIDAD - ESPERAR";
+                } else if (countAir >= 3) {
+                    if (fourier.danger) {
+                        signalBox.className = "bg-red-950/40 rounded-xl p-4 text-center border border-red-500/50 transition-colors duration-300 pulse-red";
+                        txt.className = "text-xs font-black text-red-500 uppercase tracking-widest"; txt.innerHTML = "BLOQUEO FOURIER<br><span class='text-[9px] text-red-400 mt-1 block'>Evasión de Barrida Activa</span>";
+                    } else if (quantumScore < 30) {
+                        signalBox.className = "bg-amber-950/40 rounded-xl p-4 text-center border border-amber-500/50 transition-colors duration-300";
+                        txt.className = "text-xs font-black text-amber-500 uppercase tracking-widest"; txt.innerHTML = "BLOQUEO CUÁNTICO<br><span class='text-[9px] text-amber-400 mt-1 block'>Interferencia Destructiva</span>";
+                    } else if (markovRisk <= 35 && poissonRisk <= 65) {
+                        let extraMsg = (hScore > 0.60 && vState === "PAGADOR" && quantumScore >= 80) ? "<br><span class='text-[10px] text-yellow-400 mt-1 block'>🌟 COLAPSO APEX (DON GUY SEGURO)</span>" : "";
+                        signalBox.className = "bg-emerald-950/40 rounded-xl p-4 text-center border border-emerald-500/50 pulse-green transition-colors duration-300";
+                        txt.className = "text-xl font-black text-emerald-400 uppercase tracking-widest"; txt.innerHTML = "ENTRAR AHORA (UNDER 7)" + extraMsg;
+                    } else {
+                        signalBox.className = "bg-amber-950/40 rounded-xl p-4 text-center border border-amber-500/30 transition-colors duration-300";
+                        txt.className = "text-xs font-black text-amber-500 uppercase tracking-widest"; txt.innerText = "RIESGO QUANT ELEVADO - IGNORAR";
+                    }
+                } else {
+                    signalBox.className = "bg-slate-900 rounded-xl p-4 text-center border border-slate-700 transition-colors duration-300";
+                    txt.className = "text-xs font-black text-slate-400 uppercase tracking-widest"; txt.innerText = `FILTRANDO AIRE... (${countAir}/3)`;
+                }
+            } else {
+                // SNIPER OVER 7
+                if (fourier.strike || countPressure >= 7 || quantumScore >= 80) {
+                    signalBox.className = "bg-purple-950/40 rounded-xl p-4 text-center border border-purple-500/50 pulse-purple transition-colors duration-300";
+                    txt.className = "text-xl font-black text-purple-400 uppercase tracking-widest"; txt.innerHTML = "¡GATILLAR AHORA! (OVER 6)";
+                } else {
+                    signalBox.className = "bg-slate-900 rounded-xl p-4 text-center border border-slate-700 transition-colors duration-300";
+                    txt.className = "text-xs font-black text-slate-400 uppercase tracking-widest"; txt.innerText = `Cazando... (Presión: ${countPressure})`;
+                }
+            }
+        }
+
+        function updateHeatmap() {
+            if (tickBuffer.length === 0) return;
+            let n = tickBuffer.length;
+            let counts = Array(10).fill(0);
+            tickBuffer.forEach(d => counts[d]++);
+            let isUnder = session.strategy === 'under7';
+
+            for (let i = 0; i <= 9; i++) {
+                let prob = ((counts[i] / n) * 100).toFixed(0);
+                let el = document.getElementById(`hm-${i}`);
+                let pText = document.getElementById(`hm-p-${i}`);
+
+                let isDanger = isUnder ? i >= TARGET : false;
+                let isTarget = !isUnder ? i >= TARGET : false;
+                
+                let baseClass = "flex flex-col items-center justify-center py-1.5 rounded-lg border transition-all duration-300 relative overflow-hidden ";
+                let deco = (isDanger || isTarget) ? `<div class="absolute inset-0 border-b-2 border-${isTarget?'emerald':'red'}-500/30"></div>` : '';
+
+                if (prob == 0) {
+                    el.className = baseClass + "bg-slate-800/30 border-slate-700/30";
+                    pText.className = "text-[9px] font-mono text-slate-600 z-10";
+                } else if (prob < 10) {
+                    el.className = baseClass + ((isDanger||isTarget) ? `bg-${isTarget?'emerald':'red'}-950/20 border-${isTarget?'emerald':'red'}-900/30` : "bg-slate-800 border-slate-700");
+                    pText.className = `text-[9px] font-mono z-10 ${(isDanger||isTarget) ? `text-${isTarget?'emerald':'red'}-500/50` : 'text-slate-500'}`;
+                } else {
+                    el.className = baseClass + ((isDanger||isTarget) ? `bg-${isTarget?'emerald':'red'}-600/30 border-${isTarget?'emerald':'red'}-500 shadow-[0_0_10px_rgba(${isTarget?'16,185,129':'239,68,68'},0.2)] scale-105` : "bg-slate-700 border-slate-600");
+                    pText.className = `text-[9px] font-mono font-black z-10 ${(isDanger||isTarget) ? `text-${isTarget?'emerald':'red'}-400` : 'text-slate-400'}`;
+                }
+                el.innerHTML = `${deco}<span class="text-[10px] font-bold z-10 text-${(isDanger||isTarget) ? (isTarget?'emerald-300':'red-300') : 'white'}">${i}</span><span id="hm-p-${i}" class="${pText.className}">${prob}%</span>`;
+            }
+        }
+
+        function renderJournal() {
+            document.getElementById('global-profit').innerText = `$${db.profit.toFixed(2)}`;
+            const list = document.getElementById('journal-list');
+            if(db.logs.length === 0) { list.innerHTML = ''; return; }
+            list.innerHTML = db.logs.map(log => `
+                <div class="flex justify-between items-center bg-slate-900/50 p-3 rounded-xl border border-slate-700/50">
+                    <div class="flex flex-col gap-1">
+                        <span class="text-[9px] font-black text-slate-400">${log.date} | ${log.asset}</span>
+                        <span class="text-[8px] font-bold text-slate-500">${log.mode}</span>
+                    </div>
+                    <span class="text-sm font-mono font-black ${parseFloat(log.profit) > 0 ? 'text-emerald-400' : 'text-red-400'}">
+                        ${parseFloat(log.profit) > 0 ? '+' : ''}${log.profit}
+                    </span>
+                </div>
+            `).join('');
+        }
+
+        function clearJournal() {
+            localStorage.removeItem('oracle_v21_profit');
+            localStorage.removeItem('oracle_v21_logs');
+            db.profit = 0; db.logs = []; renderJournal();
+        }
+    </script>
+</body>
+</html>
