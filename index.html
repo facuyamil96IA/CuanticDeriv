@@ -17,7 +17,9 @@
         .pulse-purple { animation: pulseP 1.5s infinite; }
         @keyframes pulseP { 0% { box-shadow: 0 0 0 0 rgba(168, 85, 247, 0.6); } 70% { box-shadow: 0 0 0 10px rgba(168, 85, 247, 0); } 100% { box-shadow: 0 0 0 0 rgba(168, 85, 247, 0); } }
         .pulse-blue { animation: pulseB 1.5s infinite; }
-        @keyframes pulseB { 0% { box-shadow: 0 0 0 0 rgba(56, 189, 248, 0.6); } 70% { box-shadow: 0 0 0 10px rgba(56, 189, 248, 0); } 100% { box-shadow: 0 0 0 0 rgba(56, 189, 248, 0); } }
+        @keyframes pulseB { 0% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.6); } 70% { box-shadow: 0 0 0 10px rgba(59, 130, 246, 0); } 100% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0); } }
+        .pulse-sky { animation: pulseSky 1.5s infinite; }
+        @keyframes pulseSky { 0% { box-shadow: 0 0 0 0 rgba(14, 165, 233, 0.6); } 70% { box-shadow: 0 0 0 10px rgba(14, 165, 233, 0); } 100% { box-shadow: 0 0 0 0 rgba(14, 165, 233, 0); } }
         .pulse-red { animation: pulseR 1.5s infinite; }
         @keyframes pulseR { 0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.6); } 70% { box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); } 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); } }
         .custom-scroll::-webkit-scrollbar { width: 4px; }
@@ -114,6 +116,25 @@
                     <div id="t-2" class="w-10 h-10 rounded-lg bg-slate-800 flex items-center justify-center text-slate-500 font-mono text-sm border border-slate-700">-</div>
                     <div id="t-1" class="w-12 h-12 rounded-xl bg-slate-700 flex items-center justify-center text-slate-300 font-mono text-lg border border-slate-600">-</div>
                     <div id="t-0" class="w-16 h-16 rounded-2xl bg-black flex items-center justify-center text-white font-mono text-3xl font-black border-2 border-slate-500 transition-all">-</div>
+                </div>
+
+                <div class="glass-panel rounded-xl p-3 mb-4 flex flex-col justify-between border-l-4 border-l-slate-600 transition-colors duration-300" id="xz-panel">
+                    <div class="flex justify-between items-center mb-2">
+                        <span class="text-[8px] font-black text-slate-400 uppercase tracking-widest">Motor Vectorial Xz</span>
+                        <span class="text-[9px] font-bold text-slate-500 uppercase tracking-widest px-2 py-0.5 rounded bg-slate-900/50" id="xz-status">Analizando...</span>
+                    </div>
+                    <div class="flex items-center justify-between">
+                        <div class="flex gap-1" id="xz-history">
+                            <div class="w-4 h-1.5 rounded-full bg-slate-700"></div>
+                            <div class="w-4 h-1.5 rounded-full bg-slate-700"></div>
+                            <div class="w-4 h-1.5 rounded-full bg-slate-700"></div>
+                            <div class="w-4 h-1.5 rounded-full bg-slate-700"></div>
+                            <div class="w-4 h-1.5 rounded-full bg-slate-700"></div>
+                        </div>
+                        <div class="text-right">
+                            <span class="text-[10px] font-black uppercase text-slate-500" id="xz-reversion">Sin Anomalías</span>
+                        </div>
+                    </div>
                 </div>
 
                 <div class="grid grid-cols-3 gap-2 mb-4">
@@ -494,7 +515,7 @@
             let stkVal = getStake().toFixed(2);
             
             if (session.mode === 'inmersion' && session.underwater) {
-                document.getElementById('stk-display').innerHTML = `${stkVal} <span class="text-sky-400 text-[10px] ml-2 uppercase font-black tracking-widest bg-sky-900/30 px-2 py-1 rounded-full border border-sky-500/50 pulse-blue align-middle inline-block mb-1">🌊 SUBMARINO (${session.subWins}/2)</span>`;
+                document.getElementById('stk-display').innerHTML = `${stkVal} <span class="text-sky-400 text-[10px] ml-2 uppercase font-black tracking-widest bg-sky-900/30 px-2 py-1 rounded-full border border-sky-500/50 pulse-sky align-middle inline-block mb-1">🌊 SUBMARINO (${session.subWins}/2)</span>`;
             } else {
                 document.getElementById('stk-display').innerHTML = stkVal;
             }
@@ -801,23 +822,73 @@
             else if (quantumScore < 30) { mQuantum.className = "text-sm text-center font-mono font-black my-1 text-red-400"; lblQuantum.innerText = "DESTRUCTIVA"; lblQuantum.className = "text-[6px] text-center font-bold uppercase text-red-400"; } 
             else { mQuantum.className = "text-sm text-center font-mono font-black my-1 text-slate-500"; lblQuantum.innerText = "NEUTRA"; lblQuantum.className = "text-[6px] text-center font-bold uppercase text-slate-500"; }
 
-            // ================= MOTOR XZ (ESCUDO DE NIKOLAS) =================
+            // ================= MOTOR VECTORIAL XZ (TENDENCIA & REVERSIÓN) =================
             let xzBloqueo = false;
             let xzMensaje = "";
-            if (isUnder && n >= 2) {
+            
+            if (n >= 2) {
+                let xzPanel = document.getElementById('xz-panel');
+                let xzStatus = document.getElementById('xz-status');
+                let xzRev = document.getElementById('xz-reversion');
+                let xzHistory = document.getElementById('xz-history');
+                
                 let current = tickBuffer[n - 1];
                 let previous = tickBuffer[n - 2];
                 let isAzul = current > previous;
+                let isRojo = current < previous;
                 let salto = Math.abs(current - previous);
                 
-                // Postulado de Fuerza Alcista Anormal
-                if (isAzul && salto >= 4) {
+                // 1. Detección de Anomalías / Reversión
+                let anomalyType = "none";
+                if (isAzul && salto >= 4) anomalyType = "blue_jump";
+                else if (isAzul && current % 2 !== 0 && current >= 5) anomalyType = "blue_odd";
+                else if (isRojo && salto >= 4) anomalyType = "red_jump";
+                else if (isRojo && current % 2 !== 0 && current <= 3) anomalyType = "red_odd";
+                
+                // Aplicar bloqueo silencioso para Under 7
+                if (isUnder && (anomalyType === "blue_jump" || anomalyType === "blue_odd")) {
                     xzBloqueo = true;
-                    xzMensaje = `Salto Azul violento (+${salto})`;
-                } else if (isAzul && current % 2 !== 0 && current >= 5) {
-                    // Masa Impar Alta en dirección Azul
-                    xzBloqueo = true;
-                    xzMensaje = `Masa Impar Alcista (${current})`;
+                    xzMensaje = anomalyType === "blue_jump" ? `Salto Azul violento (+${salto})` : `Masa Impar Alcista (${current})`;
+                }
+                
+                // 2. Historial de Micro-Tendencia (Últimos 5 ticks)
+                let steps = [];
+                let limit = Math.min(n, 6);
+                for(let i = 1; i < limit; i++) {
+                    let p = tickBuffer[n - i - 1];
+                    let c = tickBuffer[n - i];
+                    steps.unshift(c > p ? 'azul' : (c < p ? 'rojo' : 'gris'));
+                }
+                
+                // Dibujar UI Visual de vectores
+                let htmlBars = "";
+                let blues = 0, reds = 0;
+                steps.forEach(s => {
+                    if(s === 'azul') { htmlBars += `<div class="w-4 h-1.5 rounded-full bg-blue-500 shadow-[0_0_5px_rgba(59,130,246,0.6)]"></div>`; blues++; }
+                    else if(s === 'rojo') { htmlBars += `<div class="w-4 h-1.5 rounded-full bg-red-500 shadow-[0_0_5px_rgba(239,68,68,0.6)]"></div>`; reds++; }
+                    else { htmlBars += `<div class="w-4 h-1.5 rounded-full bg-slate-600"></div>`; }
+                });
+                if(xzHistory) xzHistory.innerHTML = htmlBars;
+                
+                // Renderizar Estado de Tendencia
+                if (blues > reds) {
+                    if(xzStatus) { xzStatus.innerText = "DOMINIO AZUL (SUBE)"; xzStatus.className = "text-[9px] font-bold text-blue-400 uppercase tracking-widest px-2 py-0.5 rounded bg-blue-900/30 border border-blue-500/30"; }
+                    if(xzPanel) xzPanel.className = "glass-panel rounded-xl p-3 mb-4 flex flex-col justify-between border-l-4 border-l-blue-500 transition-colors duration-300";
+                } else if (reds > blues) {
+                    if(xzStatus) { xzStatus.innerText = "DOMINIO ROJO (BAJA)"; xzStatus.className = "text-[9px] font-bold text-red-400 uppercase tracking-widest px-2 py-0.5 rounded bg-red-900/30 border border-red-500/30"; }
+                    if(xzPanel) xzPanel.className = "glass-panel rounded-xl p-3 mb-4 flex flex-col justify-between border-l-4 border-l-red-500 transition-colors duration-300";
+                } else {
+                    if(xzStatus) { xzStatus.innerText = "LATERAL / NEUTRO"; xzStatus.className = "text-[9px] font-bold text-slate-400 uppercase tracking-widest px-2 py-0.5 rounded bg-slate-800 border border-slate-600"; }
+                    if(xzPanel) xzPanel.className = "glass-panel rounded-xl p-3 mb-4 flex flex-col justify-between border-l-4 border-l-slate-600 transition-colors duration-300";
+                }
+                
+                // Alarma de Reversión
+                if (anomalyType !== "none" && xzRev) {
+                    xzRev.innerText = "⚠️ RIESGO REVERSIÓN";
+                    xzRev.className = "text-[10px] font-black uppercase text-amber-400 animate-pulse";
+                } else if (xzRev) {
+                    xzRev.innerText = "FLUJO NORMAL";
+                    xzRev.className = "text-[10px] font-black uppercase text-slate-500";
                 }
             }
 
@@ -831,7 +902,7 @@
                     signalBox.className = "bg-red-950/40 rounded-xl p-4 text-center border border-red-500/30 transition-colors duration-300";
                     txt.className = "text-sm font-black text-red-500 uppercase tracking-widest"; txt.innerText = "PICO DE VOLATILIDAD - ESPERAR";
                 } else if (xzBloqueo) {
-                    signalBox.className = "bg-sky-950/40 rounded-xl p-4 text-center border border-sky-500/50 transition-colors duration-300 pulse-blue";
+                    signalBox.className = "bg-sky-950/40 rounded-xl p-4 text-center border border-sky-500/50 transition-colors duration-300 pulse-sky";
                     txt.className = "text-xs font-black text-sky-500 uppercase tracking-widest"; txt.innerHTML = `ESCUDO XZ ACTIVADO<br><span class='text-[9px] text-sky-400 mt-1 block'>Peligro: ${xzMensaje}</span>`;
                 } else if (countAir >= 3) {
                     if (fourier.danger) {
