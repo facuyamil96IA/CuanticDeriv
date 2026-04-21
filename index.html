@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Oracle Quant V21 - Dual Core Apex</title>
+    <title>Oracle Quant V21 - Dual Core Apex (Lab Edition)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;800&family=JetBrains+Mono:wght@400;700;800&display=swap" rel="stylesheet">
     <style>
@@ -16,6 +16,10 @@
         @keyframes pulseG { 0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.6); } 70% { box-shadow: 0 0 0 10px rgba(16, 185, 129, 0); } 100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); } }
         .pulse-purple { animation: pulseP 1.5s infinite; }
         @keyframes pulseP { 0% { box-shadow: 0 0 0 0 rgba(168, 85, 247, 0.6); } 70% { box-shadow: 0 0 0 10px rgba(168, 85, 247, 0); } 100% { box-shadow: 0 0 0 0 rgba(168, 85, 247, 0); } }
+        .pulse-blue { animation: pulseB 1.5s infinite; }
+        @keyframes pulseB { 0% { box-shadow: 0 0 0 0 rgba(56, 189, 248, 0.6); } 70% { box-shadow: 0 0 0 10px rgba(56, 189, 248, 0); } 100% { box-shadow: 0 0 0 0 rgba(56, 189, 248, 0); } }
+        .pulse-red { animation: pulseR 1.5s infinite; }
+        @keyframes pulseR { 0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.6); } 70% { box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); } 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); } }
         .custom-scroll::-webkit-scrollbar { width: 4px; }
         .custom-scroll::-webkit-scrollbar-thumb { background: #334155; border-radius: 10px; }
     </style>
@@ -74,10 +78,12 @@
                 <div>
                     <label class="text-[10px] font-bold text-slate-400 uppercase block mb-1">Modo de Gestión</label>
                     <select id="cfg-mode" class="w-full bg-slate-900 border border-slate-700 p-3 rounded-xl font-bold outline-none text-emerald-400">
-                        <option value="fijo">Monto Fijo</option>
-                        <option value="compuesto" selected>Compuesto Clásico</option>
-                        <option value="diferido">Compuesto Diferido (Seguro)</option>
-                        <option value="donguy">Don Guy (Vuelo Libre)</option>
+                        <option value="fijo">1. Monto Fijo (Ideal Sniper)</option>
+                        <option value="guerrilla">2. Guerrilla (2 Pasos)</option>
+                        <option value="compuesto" selected>3. Compuesto (3 Pasos)</option>
+                        <option value="diferido">4. Diferido (Búnker)</option>
+                        <option value="donguy">5. Vuelo Libre (Don Guy)</option>
+                        <option value="inmersion">6. Inmersión Submarina (Drop-Staking)</option>
                     </select>
                 </div>
             </div>
@@ -187,7 +193,7 @@
                 <div class="flex justify-between items-center mb-4">
                     <div>
                         <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest">Inversión (Stake)</p>
-                        <div class="text-4xl font-black text-white font-mono mt-1">$<span id="stk-display">0.00</span></div>
+                        <div class="text-4xl font-black text-white font-mono mt-1 flex items-center gap-2">$<span id="stk-display">0.00</span></div>
                     </div>
                     <div class="text-right">
                         <span id="lbl-mode-active" class="text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded">MODO</span>
@@ -213,6 +219,10 @@
                     <button onclick="recordTrade(false)" id="btn-loss" class="py-4 bg-slate-800 border border-slate-700 rounded-xl font-black text-slate-400 uppercase tracking-widest text-xs active:scale-95 transition-all">❌ Perdí</button>
                     <button onclick="recordTrade(true)" id="btn-win" class="py-4 rounded-xl font-black text-white uppercase tracking-widest text-xs active:scale-95 transition-all">✅ Gané</button>
                 </div>
+                
+                <button onclick="endSession(true, 'Cierre Manual / Hit & Run')" class="w-full mt-3 py-3 bg-slate-800 border border-slate-700 text-slate-400 font-bold rounded-xl uppercase tracking-widest text-[10px] hover:bg-slate-700 transition-all">
+                    ⏹️ Finalizar Sesión (Hit & Run / Cobrar)
+                </button>
             </div>
 
             <div class="glass-panel rounded-3xl p-5 space-y-4">
@@ -245,7 +255,8 @@
 
         let session = {
             active: false, asset: '', strategy: 'under7', baseStake: 10, payoutRate: 0.40, multiplier: 1.40, mode: 'compuesto',
-            wins: 0, losses: 0, profit: 0, currentStreak: 0, currentLossStreak: 0
+            wins: 0, losses: 0, profit: 0, currentStreak: 0, currentLossStreak: 0,
+            underwater: false, subWins: 0, surfaceWins: 0, currentStake: 10
         };
 
         // ================= UI DYNAMICS & CONFIG =================
@@ -266,13 +277,13 @@
                 document.getElementById('cfg-payout').value = 40.0;
                 document.getElementById('cfg-mode').value = 'compuesto';
                 btn.className = "w-full mt-4 py-4 bg-emerald-600 hover:bg-emerald-500 rounded-xl text-white font-black uppercase tracking-widest text-xs transition-all shadow-[0_0_15px_rgba(16,185,129,0.3)] active:scale-95";
-                body.style.backgroundColor = "#030712"; // Deep Blue/Gray
+                body.style.backgroundColor = "#030712"; 
             } else {
                 document.getElementById('cfg-stake').value = 5;
                 document.getElementById('cfg-payout').value = 370.0;
                 document.getElementById('cfg-mode').value = 'fijo';
                 btn.className = "w-full mt-4 py-4 bg-purple-600 hover:bg-purple-500 rounded-xl text-white font-black uppercase tracking-widest text-xs transition-all shadow-[0_0_15px_rgba(168,85,247,0.4)] active:scale-95";
-                body.style.backgroundColor = "#0f071a"; // Deep Purple
+                body.style.backgroundColor = "#0f071a"; 
             }
         }
 
@@ -280,7 +291,6 @@
             let strat = session.strategy;
             let isUnder = strat === 'under7';
             
-            // Colores Header y Paneles
             let cMain = isUnder ? 'emerald' : 'purple';
             let cSec = isUnder ? 'sky' : 'emerald';
             
@@ -293,7 +303,6 @@
             
             document.getElementById('lbl-asset').className = `text-[10px] font-black text-white uppercase tracking-widest bg-${cSec}-900/40 border border-${cSec}-500/30 px-2 py-1 rounded transition-colors duration-500`;
             
-            // Labels de Telemetría
             document.getElementById('lbl-t1-title').innerText = isUnder ? "Filtro Aire" : "Presión (Aire)";
             document.getElementById('lbl-t1-sub').innerHTML = isUnder ? `<span class="text-emerald-500/70">≥3</span><span class="text-sky-500/70">&lt;3</span>` : `<span class="text-slate-500/70">Bajo</span><span class="text-purple-500/70">Alto (>5)</span>`;
             
@@ -306,7 +315,6 @@
             document.getElementById('lbl-dq-header').className = `text-[8px] font-black text-${cMain}-400 uppercase tracking-widest mb-3 text-center flex items-center justify-center gap-1`;
             document.getElementById('lbl-fourier-title').innerText = isUnder ? "Fourier 64T (Evasión)" : "Fourier 64T (Gatillo)";
 
-            // Botones de Gestión
             let btnWin = document.getElementById('btn-win');
             let btnLoss = document.getElementById('btn-loss');
             let lblModeActive = document.getElementById('lbl-mode-active');
@@ -319,7 +327,9 @@
                 btnWin.className = "py-4 bg-emerald-600 rounded-xl font-black text-white uppercase tracking-widest text-xs hover:bg-emerald-500 active:scale-95 transition-all shadow-[0_0_15px_rgba(16,185,129,0.2)]";
                 btnLoss.innerHTML = "❌ Fallo (7-9)";
                 btnLoss.className = "py-4 bg-slate-800 border border-slate-700 rounded-xl font-black text-red-400 uppercase tracking-widest text-xs hover:bg-red-900/30 active:scale-95 transition-all";
-                document.getElementById('lbl-wins-txt').innerText = "Aciertos (3 Máx)";
+                
+                let maxWins = (session.mode === 'guerrilla') ? 2 : 3;
+                document.getElementById('lbl-wins-txt').innerText = `Aciertos (${maxWins} Máx)`;
                 document.getElementById('lbl-loss-txt').innerText = "Derrotas (2 Máx)";
             } else {
                 btnWin.innerHTML = "🎯 Caza (7-9)";
@@ -346,6 +356,7 @@
             session.mode = document.getElementById('cfg-mode').value;
             
             session.wins = 0; session.losses = 0; session.profit = 0; session.currentStreak = 0; session.currentLossStreak = 0;
+            session.underwater = false; session.subWins = 0; session.surfaceWins = 0; session.currentStake = session.baseStake;
             session.active = true;
             
             initBackgroundMarkets();
@@ -366,6 +377,10 @@
         function getStake() {
             let b = session.baseStake, m = session.multiplier, p = session.payoutRate, s = session.currentStreak;
             if (session.mode === 'fijo') return b;
+            if (session.mode === 'guerrilla') {
+                if (s === 0) return b;
+                return round(b * m);
+            }
             if (session.mode === 'compuesto') return round(b * Math.pow(m, s));
             if (session.mode === 'diferido') {
                 if (s === 0 || s === 1) return b;
@@ -375,6 +390,9 @@
                 if (s === 0) return b;
                 if (s === 1) return round(b * m);
                 return round(((b*m*m)-b) * Math.pow(m, s-2));
+            }
+            if (session.mode === 'inmersion') {
+                return session.currentStake;
             }
             return b;
         }
@@ -387,8 +405,25 @@
             
             if (win) {
                 session.wins++; session.currentLossStreak = 0;
-                session.profit = round(session.profit + round(currentWager * session.payoutRate));
-                if (session.mode !== 'fijo') session.currentStreak++;
+                let profitThisTrade = round(currentWager * session.payoutRate);
+                session.profit = round(session.profit + profitThisTrade);
+                
+                if (session.mode === 'inmersion') {
+                    if (session.underwater) {
+                        session.subWins++;
+                        if (session.subWins >= 2) {
+                            session.underwater = false;
+                            session.currentStake = session.baseStake;
+                            session.subWins = 0;
+                        }
+                    } else {
+                        session.surfaceWins++;
+                        session.currentStake = session.baseStake; 
+                    }
+                    session.currentStreak++; 
+                } else if (session.mode !== 'fijo') {
+                    session.currentStreak++;
+                }
             } else {
                 if (session.mode === 'donguy' && session.currentStreak >= 2) {
                     session.profit = round(session.profit - currentWager);
@@ -396,7 +431,15 @@
                 }
                 session.losses++; session.currentLossStreak++;
                 session.profit = round(session.profit - currentWager);
-                if (session.mode !== 'fijo') session.currentStreak = 0; 
+                
+                if (session.mode === 'inmersion') {
+                    session.underwater = true;
+                    session.subWins = 0;
+                    session.currentStake = 0.35; // Deriv Mínimo absoluto
+                    session.currentStreak = 0;
+                } else if (session.mode !== 'fijo') {
+                    session.currentStreak = 0; 
+                }
             }
 
             countAir = 0; countPressure = 0;
@@ -406,14 +449,24 @@
             document.getElementById('action-text').innerText = "RECALCULANDO...";
             updateUI();
 
-            // End conditions for Under 7
+            let isSuccess = false;
+            let isFailure = false;
+
             if (session.strategy === 'under7') {
-                let isSuccess = false;
                 if (session.mode === 'fijo') isSuccess = session.wins >= 3;
+                else if (session.mode === 'guerrilla') isSuccess = session.currentStreak >= 2;
                 else if (session.mode === 'compuesto' || session.mode === 'diferido') isSuccess = session.currentStreak >= 3;
-                if ((isSuccess && session.mode !== 'donguy') || session.losses >= 2) {
-                    setTimeout(() => endSession(isSuccess, isSuccess?'Meta Alcanzada':'Límite 2 Balas'), 300);
+                else if (session.mode === 'inmersion') isSuccess = session.surfaceWins >= 3;
+                
+                if (session.losses >= 2 && session.mode !== 'inmersion' && session.mode !== 'donguy') {
+                    isFailure = true;
                 }
+            }
+
+            if (isSuccess) {
+                setTimeout(() => endSession(true, 'Meta Alcanzada'), 300);
+            } else if (isFailure) {
+                setTimeout(() => endSession(false, 'Límite Pérdidas Alcanzado'), 300);
             }
         }
 
@@ -438,13 +491,20 @@
         }
 
         function updateUI() {
-            document.getElementById('stk-display').innerText = getStake().toFixed(2);
+            let stkVal = getStake().toFixed(2);
+            
+            if (session.mode === 'inmersion' && session.underwater) {
+                document.getElementById('stk-display').innerHTML = `${stkVal} <span class="text-sky-400 text-[10px] ml-2 uppercase font-black tracking-widest bg-sky-900/30 px-2 py-1 rounded-full border border-sky-500/50 pulse-blue align-middle inline-block mb-1">🌊 SUBMARINO (${session.subWins}/2)</span>`;
+            } else {
+                document.getElementById('stk-display').innerHTML = stkVal;
+            }
+
             document.getElementById('temp-profit').innerText = `${session.profit >= 0 ? '+' : ''}$${session.profit.toFixed(2)}`;
             let isUnder = session.strategy === 'under7';
             document.getElementById('temp-profit').className = `font-mono ${session.profit >= 0 ? (isUnder?'text-emerald-400':'text-purple-400') : 'text-red-400'}`;
             
             if(isUnder) {
-                document.getElementById('txt-wins').innerText = session.wins;
+                document.getElementById('txt-wins').innerText = session.mode === 'inmersion' ? session.surfaceWins : session.wins;
                 document.getElementById('txt-losses').innerText = session.losses;
             } else {
                 document.getElementById('txt-wins').innerText = session.wins;
@@ -692,7 +752,7 @@
             document.getElementById('m-viterbi').className = `text-[8px] font-black tracking-widest uppercase ${vColor}`;
             document.getElementById('box-viterbi').className = `text-center rounded mt-1 p-1 transition-colors ${vBg}`;
 
-            // 3. HURST & PERCOLACION (Shared base math)
+            // 3. HURST & PERCOLACION
             let hScore = 0.5;
             if(n >= 30) {
                 let meanH = tickBuffer.reduce((a,b)=>a+b,0)/n;
@@ -741,6 +801,26 @@
             else if (quantumScore < 30) { mQuantum.className = "text-sm text-center font-mono font-black my-1 text-red-400"; lblQuantum.innerText = "DESTRUCTIVA"; lblQuantum.className = "text-[6px] text-center font-bold uppercase text-red-400"; } 
             else { mQuantum.className = "text-sm text-center font-mono font-black my-1 text-slate-500"; lblQuantum.innerText = "NEUTRA"; lblQuantum.className = "text-[6px] text-center font-bold uppercase text-slate-500"; }
 
+            // ================= MOTOR XZ (ESCUDO DE NIKOLAS) =================
+            let xzBloqueo = false;
+            let xzMensaje = "";
+            if (isUnder && n >= 2) {
+                let current = tickBuffer[n - 1];
+                let previous = tickBuffer[n - 2];
+                let isAzul = current > previous;
+                let salto = Math.abs(current - previous);
+                
+                // Postulado de Fuerza Alcista Anormal
+                if (isAzul && salto >= 4) {
+                    xzBloqueo = true;
+                    xzMensaje = `Salto Azul violento (+${salto})`;
+                } else if (isAzul && current % 2 !== 0 && current >= 5) {
+                    // Masa Impar Alta en dirección Azul
+                    xzBloqueo = true;
+                    xzMensaje = `Masa Impar Alcista (${current})`;
+                }
+            }
+
             // ================= SEMÁFORO MAESTRO =================
             let signalBox = document.getElementById('master-signal');
             let txt = document.getElementById('action-text');
@@ -750,6 +830,9 @@
                 if (currentDigit >= TARGET) {
                     signalBox.className = "bg-red-950/40 rounded-xl p-4 text-center border border-red-500/30 transition-colors duration-300";
                     txt.className = "text-sm font-black text-red-500 uppercase tracking-widest"; txt.innerText = "PICO DE VOLATILIDAD - ESPERAR";
+                } else if (xzBloqueo) {
+                    signalBox.className = "bg-sky-950/40 rounded-xl p-4 text-center border border-sky-500/50 transition-colors duration-300 pulse-blue";
+                    txt.className = "text-xs font-black text-sky-500 uppercase tracking-widest"; txt.innerHTML = `ESCUDO XZ ACTIVADO<br><span class='text-[9px] text-sky-400 mt-1 block'>Peligro: ${xzMensaje}</span>`;
                 } else if (countAir >= 3) {
                     if (fourier.danger) {
                         signalBox.className = "bg-red-950/40 rounded-xl p-4 text-center border border-red-500/50 transition-colors duration-300 pulse-red";
@@ -770,7 +853,6 @@
                     txt.className = "text-xs font-black text-slate-400 uppercase tracking-widest"; txt.innerText = `FILTRANDO AIRE... (${countAir}/3)`;
                 }
             } else {
-                // SNIPER OVER 7
                 if (fourier.strike || countPressure >= 7 || quantumScore >= 80) {
                     signalBox.className = "bg-purple-950/40 rounded-xl p-4 text-center border border-purple-500/50 pulse-purple transition-colors duration-300";
                     txt.className = "text-xl font-black text-purple-400 uppercase tracking-widest"; txt.innerHTML = "¡GATILLAR AHORA! (OVER 6)";
