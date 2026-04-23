@@ -194,7 +194,15 @@
                 </div>
 
                 <div class="mt-5 border-t border-slate-700/50 pt-4">
-                    <p class="text-[8px] font-black text-slate-500 uppercase tracking-widest mb-2 text-center" id="lbl-heatmap-title">Heatmap: Probabilidad Empírica (64 Ticks)</p>
+                    <div class="flex justify-between items-center mb-2">
+                        <p class="text-[8px] font-black text-slate-500 uppercase tracking-widest" id="lbl-heatmap-title">Probabilidad (64 Ticks)</p>
+                        
+                        <div class="bg-black/50 px-2 py-1 rounded-lg border border-white/5 flex items-center gap-2">
+                            <span class="text-[7px] font-bold text-slate-400 uppercase tracking-widest">Masa Fuerte [7-8-9]:</span>
+                            <span id="m-riesgo-alto" class="text-[10px] font-mono font-black text-slate-500 transition-colors">--%</span>
+                        </div>
+                        
+                    </div>
                     <div class="grid grid-cols-5 gap-1.5" id="heatmap-grid">
                         <div id="hm-0" class="flex flex-col items-center justify-center py-1.5 rounded-lg border border-slate-700 bg-slate-800 transition-colors"><span class="text-[10px] font-bold text-white">0</span><span id="hm-p-0" class="text-[9px] font-mono text-slate-400">-%</span></div>
                         <div id="hm-1" class="flex flex-col items-center justify-center py-1.5 rounded-lg border border-slate-700 bg-slate-800 transition-colors"><span class="text-[10px] font-bold text-white">1</span><span id="hm-p-1" class="text-[9px] font-mono text-slate-400">-%</span></div>
@@ -266,8 +274,8 @@
         let tickVisuals = ['-', '-', '-'];
         
         // Contadores Dinámicos
-        let countAir = 0; // Para Under 7
-        let countPressure = 0; // Para Over 7
+        let countAir = 0; 
+        let countPressure = 0; 
         
         let db = {
             profit: parseFloat(localStorage.getItem('oracle_v21_profit')) || 0,
@@ -941,6 +949,19 @@
             tickBuffer.forEach(d => counts[d]++);
             let isUnder = session.strategy === 'under7';
 
+            // NUEVO: INDICADOR SUMA 7-8-9 (DENSIDAD)
+            let sumHigh = counts[7] + counts[8] + counts[9];
+            let probHigh = (sumHigh / n) * 100;
+            let elRiesgo = document.getElementById('m-riesgo-alto');
+            if (elRiesgo) {
+                elRiesgo.innerText = probHigh.toFixed(1) + "%";
+                if (probHigh > 30) {
+                    elRiesgo.className = "text-[10px] font-mono font-black text-red-500 animate-pulse";
+                } else {
+                    elRiesgo.className = "text-[10px] font-mono font-black text-emerald-500";
+                }
+            }
+
             for (let i = 0; i <= 9; i++) {
                 let prob = ((counts[i] / n) * 100).toFixed(0);
                 let el = document.getElementById(`hm-${i}`);
@@ -990,4 +1011,4 @@
         }
     </script>
 </body>
-</html>
+    </html>
